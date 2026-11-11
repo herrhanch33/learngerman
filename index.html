@@ -66,7 +66,7 @@ main{display:block}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion: no-preference){
   .pop{animation:pop .22s ease}
-  @keyframes pop{from{transform:scale(.97);opacity:.6}to{transform:scale(1);opacity:1}}
+  @keyframes pop{from{transform:scale(.97)}to{transform:scale(1)}}
 }
 
 /* ---------- 헤더 ---------- */
@@ -182,6 +182,7 @@ main{display:block}
 .fb.bad{background:rgba(179,54,44,.12);border:1px solid var(--warn)}
 .primary{display:block;width:100%;background:var(--accent);color:var(--accent-ink);border-radius:14px;font-family:var(--font-d);font-size:18px;padding:12px;margin:12px 0 2px}
 .ghost{display:block;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;font-family:var(--font-d);font-size:17px;padding:11px;margin:8px 0 2px}
+.ghost svg{width:19px;height:19px;vertical-align:-4px;margin-right:4px}
 .dots{display:flex;gap:6px;justify-content:center;margin:10px 0 2px}
 .dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
 .dots i.on{background:var(--accent)}
@@ -281,8 +282,10 @@ const NOTES=[
       en:'In the examples you will see der turn into den or dem. The article changes with the job the noun does in the sentence (its case).'},
      {ko:'"~을/를" 자리 (목적어): 남성만 der → den, ein → einen. die와 das는 그대로예요.',
       en:'As the direct object: only masculine changes, der → den and ein → einen. die and das stay the same.'},
-     {ko:'mit (~와 함께), auf (~ 위에) 같은 말 뒤: der/das → dem, die → der.',
-      en:'After words like mit (with) and auf (on): der/das → dem, die → der.'},
+     {ko:'mit (~와 함께) 뒤, 그리고 위치를 말하는 auf (~ 위에), in (~ 안에) 뒤: der/das → dem, die → der.',
+      en:'After mit (with), and after auf (on) or in (in) when they say where something is: der/das → dem, die → der.'},
+     {ko:'자주 줄여서 써요: im = in dem, am = an dem, zum = zu dem, zur = zu der.',
+      en:'Common short forms: im = in dem, am = an dem, zum = zu dem, zur = zu der.'},
      {ko:'지금은 "아, 바뀌는구나" 하고 알아보기만 하면 돼요. 먼저 der, die, das를 외워요.',
       en:'For now it is enough to notice it. Learn der, die, das first.'}],
   ex:[{de:'Der Apfel ist süß.',ko:'사과가 달아요.',en:'The apple is sweet.'},
@@ -648,30 +651,35 @@ function deVoice(){
   /* 새 신경망 음성(Google, Natural, Premium, Enhanced)이 기본 음성보다 훨씬 자연스러워요 */
   const score=v=>(/premium|enhanced|natural|neural|google|siri/i.test(v.name||'')?4:0)+(/^de[-_]DE/i.test(v.lang)?2:0)+(v.localService?0:1);
   return vs.sort((a,b)=>score(b)-score(a))[0]||null;}
-function tts(t){
-  if(!canSpeak){noVoice();return;}
+/* onEnd(true) = 끝까지 읽었음, onEnd(false) = 소리를 낼 수 없었음 (연속 듣기가 써요) */
+function tts(t,onEnd){
+  if(!canSpeak){noVoice();if(onEnd)onEnd(false);return;}
   try{
     const all=speechSynthesis.getVoices(),v=deVoice();
-    if(all.length&&!v){noVoice();return;}   /* 다른 언어 음성으로 독일어를 읽히지 않아요 */
+    if(all.length&&!v){noVoice();if(onEnd)onEnd(false);return;}   /* 다른 언어 음성으로 독일어를 읽히지 않아요 */
     const u=new SpeechSynthesisUtterance(t);u.lang='de-DE';u.rate=.88;if(v)u.voice=v;
+    if(onEnd){u.onend=()=>onEnd(true);u.onerror=()=>onEnd(false);}
     speechSynthesis.cancel();speechSynthesis.speak(u);
-  }catch(e){}}
+  }catch(e){if(onEnd)onEnd(false);}}
 function noVoice(){if(warnedVoice)return;warnedVoice=true;
   toast('이 기기에는 독일어 음성이 없어요. 녹음 파일(audio 폴더)이 있는 곳에서 열면 소리가 나요.');}
 function stopSay(){try{if(player){player.pause();player=null;}if(canSpeak)speechSynthesis.cancel();}catch(e){}}
-function say(text){
-  const t=sayText(text);if(!t)return;
+function say(text,onEnd){
+  const t=sayText(text);if(!t){if(onEnd)onEnd(false);return;}
   stopSay();
-  if(audioOff){tts(t);return;}
-  let a;try{a=new Audio('audio/'+akey(t)+'.mp3');}catch(e){audioOff=true;tts(t);return;}
+  if(audioOff){tts(t,onEnd);return;}
+  let a;try{a=new Audio('audio/'+akey(t)+'.mp3');}catch(e){audioOff=true;tts(t,onEnd);return;}
   player=a;let settled=false;
   const miss=()=>{if(settled)return;settled=true;if(player===a)player=null;
     if(!audioHit&&++audioMiss>=3)audioOff=true;   /* 녹음이 아예 없는 곳: 그 뒤로는 바로 기기 음성 */
-    tts(t);};
+    tts(t,onEnd);};
   a.addEventListener('error',miss);
   a.addEventListener('playing',()=>{settled=true;audioHit++;});
+  if(onEnd)a.addEventListener('ended',()=>onEnd(true));
   try{const p=a.play();
-    if(p&&p.catch)p.catch(e=>{const n=e&&e.name;if(n==='AbortError'||n==='NotAllowedError'){settled=true;return;}miss();});
+    if(p&&p.catch)p.catch(e=>{const n=e&&e.name;
+      if(n==='AbortError'||n==='NotAllowedError'){settled=true;if(onEnd&&n==='NotAllowedError')onEnd(false);return;}
+      miss();});
   }catch(e){miss();}}
 function autoSay(text){if(S.sound)say(text);}   /* 소리 끄기 = 효과음과 자동 읽기 끄기. 듣기 버튼은 항상 돼요 */
 if(canSpeak){try{speechSynthesis.onvoiceschanged=function(){};}catch(e){}}
@@ -681,13 +689,56 @@ function toast(msg){try{
   toastEl.textContent=msg;toastEl.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{toastEl.hidden=true;},4200);
 }catch(e){}}
 
+/* ---------- 연속 듣기: 배운 단어와 예문을 차례로 읽어 주는 작은 플레이어 ---------- */
+let PL={on:false,list:[],i:0,step:0,tk:0};
+function plStop(){PL.on=false;PL.tk++;}
+function plStart(){
+  const list=learnedIn(scopeWords());
+  if(!list.length){toast('먼저 "오늘 배우기"로 단어를 배워요.');return;}
+  clearTimers();stopSay();G=null;
+  PL={on:true,list:list,i:0,step:0,tk:0};
+  view={name:'listen'};render();window.scrollTo(0,0);plPlay();
+}
+function plPlay(){
+  if(!PL.on)return;
+  const w=PL.list[PL.i],tk=++PL.tk;
+  say(PL.step?w.ex:w.de,ok=>{
+    if(!PL.on||tk!==PL.tk)return;
+    if(!ok){plStop();render();toast('소리를 낼 수 없어서 연속 듣기를 멈췄어요.');return;}
+    timers.push(setTimeout(()=>{
+      if(!PL.on||tk!==PL.tk)return;
+      if(PL.step===0)PL.step=1;
+      else{PL.step=0;PL.i++;if(PL.i>=PL.list.length){PL.i=PL.list.length-1;PL.end=true;plStop();render();return;}}
+      render();plPlay();
+    },PL.step?1500:700));
+  });
+}
+function plJump(d){
+  if(!PL.list.length)return;
+  const was=PL.on;plStop();clearTimers();stopSay();
+  PL.i=Math.max(0,Math.min(PL.list.length-1,PL.i+d));PL.step=0;PL.end=false;PL.on=was;
+  render();plPlay();
+}
+function listenView(){
+  const n=PL.list.length,w=PL.list[PL.i];
+  let h='<div class="qhead"><span class="tag">연속 듣기</span><span class="tag">'+(PL.i+1)+' / '+n+'</span></div>'
+    +'<div class="prog" aria-hidden="true"><i style="width:'+Math.round((PL.i+(PL.end?1:0))/n*100)+'%"></i></div>';
+  h+='<article class="card"><div class="wordhead" lang="de">'+wordHtml(w)+'</div><div class="meanbig">'+two(w.ko,w.en)+'</div>'+exHtml(w)+'</article>';
+  h+=PL.on?'<button class="primary" data-act="plstop">멈추기</button>'
+    :'<button class="primary" data-act="'+(PL.end?'listen':'plgo')+'">'+(PL.end?'처음부터 다시 듣기':'이어서 듣기')+'</button>';
+  h+='<div class="btnrow"><button class="ghost" data-act="plprev"'+(PL.i?'':' disabled')+'>이전 단어</button>'
+    +'<button class="ghost" data-act="plnext"'+(PL.i<n-1?'':' disabled')+'>다음 단어</button></div>';
+  h+='<p class="tiny">단어, 그다음 예문 순서로 읽어 줘요. 듣고 소리 내어 따라 해 보세요.</p>';
+  return h;
+}
+
 /* ---------- 화면 상태 ---------- */
 let view={name:'home'};
 let G=null;
 let ui={tour:null,confirmReset:false};
 let timers=[];
 function clearTimers(){timers.forEach(t=>{clearTimeout(t);clearInterval(t);});timers=[];}
-function go(v){clearTimers();stopSay();G=null;ui.confirmReset=false;view=v||{name:'home'};render();window.scrollTo(0,0);}
+function go(v){plStop();clearTimers();stopSay();G=null;ui.confirmReset=false;view=v||{name:'home'};render();window.scrollTo(0,0);}
 function announce(msg){const el=$('#live');if(el)el.textContent=msg;}
 function header(title,back){
   let h='<header class="top">';
@@ -703,6 +754,7 @@ const GAME_NAME={mean:'뜻 맞히기',art:'관사 맞히기',lueck:'빈칸 채�
 function render(){
   rollDay();
   if((view.name==='game'||view.name==='learn')&&!G)view={name:'home'};
+  if(view.name==='listen'&&!PL.list.length)view={name:'home'};
   let body='',title='';
   switch(view.name){
     case 'word':  body=wordView(view.id);  title='단어'; break;
@@ -710,6 +762,7 @@ function render(){
     case 'note':  body=noteView(view.id);  title='기초 · 문법 메모'; break;
     case 'learn': body=learnView();        title='오늘 배우기'; break;
     case 'game':  body=gameView();         title=GAME_NAME[G.kind]; break;
+    case 'listen':body=listenView();       title='연속 듣기'; break;
     default:      body=homeView();
   }
   $('#app').innerHTML=header(title,view.name!=='home')+'<main>'+body+'</main>'
@@ -788,6 +841,7 @@ function homeView(){
     +'<button class="modebtn" data-act="gart"><b>관사 맞히기</b><span>der · die · das</span></button>'
     +'<button class="modebtn" data-act="glueck"><b>빈칸 채우기</b><span>예문 완성</span></button></div>';
   if(sc.length<4)h+='<p class="tiny">게임에는 배운 단어만 나와요. 먼저 <b>오늘 배우기</b>로 단어를 배워요.</p>';
+  if(sc.length)h+='<button class="ghost" data-act="listen">'+ICON.speaker+' 연속 듣기 · 배운 단어 '+sc.length+'개와 예문</button>';
   h+='<h2 class="secttl">단어장</h2>'+tabsHtml();
   if(S.topic==='기초')h+=basicsList();
   else h+='<p class="tiny">'+esc(S.topic)+' · '+esc(TOPIC_EN[S.topic])+' · 단어를 누르면 뜻, 예문, 발음을 볼 수 있어요.</p><ul class="list">'
@@ -1185,6 +1239,11 @@ $('#app').addEventListener('click',e=>{
         if(G.li<G.words.length-1){G.li++;render();window.scrollTo(0,0);autoSay(G.words[G.li].de);}else learnQuiz();}break;
     case 'lprev': if(G&&G.kind==='learn'&&G.phase==='cards'&&G.li>0){G.li--;render();window.scrollTo(0,0);}break;
     case 'review': startReview();break;
+    case 'listen': plStart();break;
+    case 'plstop': plStop();clearTimers();stopSay();render();break;
+    case 'plgo': if(PL.list.length&&!PL.on){PL.on=true;PL.step=0;render();plPlay();}break;
+    case 'plprev': plJump(-1);break;
+    case 'plnext': plJump(1);break;
     case 'gmean': startMean();break;
     case 'gart': startArt();break;
     case 'glueck': startLueck();break;

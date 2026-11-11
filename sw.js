@@ -1,6 +1,6 @@
 // Built by dev/build_site.js. Page: network first (updates show at once), cached copy when offline.
 // Recordings and fonts: cache first (a recording never changes: its name is a hash of its text).
-const CACHE = 'deutsch-73ea17a1';
+const CACHE = 'deutsch-874b272f';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
