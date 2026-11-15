@@ -24,6 +24,7 @@
   --gold:#96700f; --ok:#1e7a45; --warn:#b3362c;
   --masc:#2456b0; --fem:#b02f45; --neu:#226b35;
   --hero:#e8efff; --hero-ink:#1c2a4a;
+  --seq1:#a9c4ff; --seq2:#5e8ff5; --seq3:#1f4fc4;
   --r:17px;
   --font-d:'Jua',sans-serif; --font-b:'Gowun Dodum',sans-serif;
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
@@ -36,6 +37,7 @@
     --gold:#e0b45c; --ok:#5fc98a; --warn:#f0837a;
     --masc:#8fb4ff; --fem:#ff93a6; --neu:#84d69a;
     --hero:#22304a; --hero-ink:#e9ecf2;
+    --seq1:#3d5a99; --seq2:#6ea0ff; --seq3:#c5d8ff;
   }
 }
 *{box-sizing:border-box}
@@ -186,6 +188,44 @@ main{display:block}
 .dots{display:flex;gap:6px;justify-content:center;margin:10px 0 2px}
 .dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
 .dots i.on{background:var(--accent)}
+
+/* ---------- 기록 탭 ---------- */
+.maintabs{display:flex;gap:6px;margin:2px 0 10px}
+.maintabs button{flex:1;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-family:var(--font-d);font-size:16px;padding:8px 4px}
+.maintabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.people{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}
+.person{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:15px}
+.person[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.person.add{border-style:dashed;color:var(--ink2)}
+.stats.four{grid-template-columns:repeat(4,1fr)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:112px;margin:10px 0 0}
+.week.empty{height:20px}
+.week .col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0}
+.week .v{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.week .b{width:100%;max-width:26px;background:var(--accent);border-radius:4px 4px 0 0}
+.week .b.zero{background:var(--line);height:2px}
+.weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;font-size:12.5px;color:var(--ink2);
+  border-top:1px solid var(--line);padding-top:4px}
+.weekdays .now{color:var(--ink);font-weight:700}
+.meter{display:grid;grid-template-columns:52px 1fr 44px;gap:10px;align-items:center;margin:9px 0;font-size:14.5px}
+.meter .track{height:10px;border-radius:999px;background:var(--surface2);overflow:hidden}
+.meter .track i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.meter .n{color:var(--ink2);font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums}
+.stack{display:flex;gap:2px;height:14px;border-radius:999px;overflow:hidden;margin:10px 0 8px}
+.stack i{display:block;height:100%;min-width:3px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13.5px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.legend b{color:var(--ink);font-weight:400;font-variant-numeric:tabular-nums}
+.s0{background:var(--line)} .s1{background:var(--seq1)} .s2{background:var(--seq2)} .s3{background:var(--seq3)}
+.cmp{width:100%;border-collapse:collapse;font-size:14.5px}
+.cmp th{font-weight:400;color:var(--ink2);font-size:12.5px;text-align:right;padding:4px 5px;border-bottom:1px solid var(--line)}
+.cmp td{text-align:right;padding:9px 5px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.cmp tr:last-child td{border-bottom:0}
+.cmp th:first-child,.cmp td:first-child{text-align:left;overflow-wrap:anywhere}
+.cmp tr.me td:first-child{font-weight:700}
+.field{display:block;margin:10px 0}
+.field span{display:block;font-size:13.5px;color:var(--ink2);margin-bottom:4px}
+.field input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:46px}
 
 /* ---------- 시트 (결과 · 사용법) · 알림 ---------- */
 .sheetwrap{position:fixed;inset:0;background:rgba(15,17,22,.55);display:grid;place-items:end center;z-index:20;
@@ -561,10 +601,29 @@ const DIFF=[null,
 
 /* ---------- 진도 저장 ---------- */
 const KEY='deutsch-v1';
-function blank(){return {xp:0,streak:0,lastDay:null,today:{day:null,games:0},items:{},log:[],diff:1,sound:true,lang:'both',seen:{},topic:'기초',updatedAt:0};}
+/* 계정 저장 서버 주소. 비어 있으면 계정 기능이 보이지 않아요. (dev/build_site.js 가 채워요) */
+const SYNC_URL='';
+/* 이 기기에서 배우는 사람들. 첫 사람(a)의 진도는 예전과 같은 자리(KEY)에, 다른 사람은 KEY-<id>에 저장해요. */
+const WHO_KEY=KEY+'-who';
+function skey(id){return id==='a'?KEY:KEY+'-'+id;}
+function loadWho(){
+  try{const o=JSON.parse(localStorage.getItem(WHO_KEY)||'null');
+    if(o&&Array.isArray(o.list)){
+      const list=o.list.filter(p=>p&&typeof p.id==='string'&&/^[a-z0-9]{1,12}$/.test(p.id)).slice(0,6)
+        .map(p=>({id:p.id,name:String(p.name||'').slice(0,10)}));
+      if(list.length)return {cur:list.some(p=>p.id===o.cur)?o.cur:list[0].id,list:list};}
+  }catch(e){}
+  return {cur:'a',list:[{id:'a',name:''}]};}
+let WHO=loadWho();
+function saveWho(){try{localStorage.setItem(WHO_KEY,JSON.stringify(WHO));}catch(e){}}
+function me(){return WHO.list.find(p=>p.id===WHO.cur)||WHO.list[0];}
+function nameOf(p){return p.name||'나';}
+const DAY_RE=/^\d{4}-\d\d-\d\d$/;
+function blank(){return {xp:0,streak:0,lastDay:null,today:{day:null,games:0},items:{},log:[],days:{},diff:1,sound:true,lang:'both',voice:'f',
+  seen:{},topic:'기초',rz:0,acct:null,updatedAt:0};}
 function load(){
   try{
-    const r=localStorage.getItem(KEY);
+    const r=localStorage.getItem(skey(WHO.cur));
     if(r){
       const o=JSON.parse(r);
       if(o&&typeof o==='object'&&!Array.isArray(o)){
@@ -586,14 +645,26 @@ function load(){
         if(typeof s.xp!=='number'||!(s.xp>=0))s.xp=0;
         if(typeof s.streak!=='number'||!(s.streak>=0))s.streak=0;
         if(typeof s.sound!=='boolean')s.sound=true;
+        if(s.voice!=='m')s.voice='f';
+        if(typeof s.rz!=='number')s.rz=0;
+        if(!s.acct||typeof s.acct!=='object'||typeof s.acct.code!=='string'||typeof s.acct.name!=='string')s.acct=null;
+        if(!s.days||typeof s.days!=='object'||Array.isArray(s.days))s.days={};
+        for(const d of Object.keys(s.days)){const x=s.days[d];if(!DAY_RE.test(d)||!x||typeof x!=='object'){delete s.days[d];continue;}
+          for(const k of ['x','g','n','c'])if(typeof x[k]!=='number'||!(x[k]>=0))x[k]=0;}
+        /* 날짜별 기록이 생기기 전의 게임 기록(log)을 날짜별로 옮겨요 */
+        if(!Object.keys(s.days).length)for(const e of s.log){if(!e||!DAY_RE.test(e.d))continue;
+          const x=s.days[e.d]||(s.days[e.d]={x:0,g:0,n:0,c:0});
+          x.x+=Math.max(0,Math.round(Number(e.x)||0));x.g++;x.n+=Math.max(0,Number(e.t)||0);x.c+=Math.max(0,Number(e.ok)||0);}
         return s;
       }
     }
   }catch(e){/* 깨진 저장 데이터 → 새로 시작 */}
   return blank();
 }
-function save(){S.updatedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function store(){try{localStorage.setItem(skey(WHO.cur),JSON.stringify(S));}catch(e){}}
+function save(){S.updatedAt=Date.now();store();syncSoon();}
 let S=load();
+function dayRec(){const t=todayStr();if(!S.days[t])S.days[t]={x:0,g:0,n:0,c:0};return S.days[t];}
 function item(id){if(!S.items[id])S.items[id]={box:0,due:'',n:0,c:0,up:'',last:0};return S.items[id];}
 function learned(id){const it=S.items[id];return !!(it&&it.n>0);}
 
@@ -664,13 +735,20 @@ function tts(t,onEnd){
 function noVoice(){if(warnedVoice)return;warnedVoice=true;
   toast('이 기기에는 독일어 음성이 없어요. 녹음 파일(audio 폴더)이 있는 곳에서 열면 소리가 나요.');}
 function stopSay(){try{if(player){player.pause();player=null;}if(canSpeak)speechSynthesis.cancel();}catch(e){}}
+/* 목소리 두 가지: 여자(audio/) 와 낮은 남자 목소리(audio/m/). 남자 녹음이 없으면 여자 녹음, 그것도 없으면 기기 음성. */
+function clipUrl(t,v){return (v==='m'?'audio/m/':'audio/')+akey(t)+'.mp3';}
 function say(text,onEnd){
   const t=sayText(text);if(!t){if(onEnd)onEnd(false);return;}
   stopSay();
   if(audioOff){tts(t,onEnd);return;}
-  let a;try{a=new Audio('audio/'+akey(t)+'.mp3');}catch(e){audioOff=true;tts(t,onEnd);return;}
+  playClip(S.voice==='m'?[clipUrl(t,'m'),clipUrl(t,'f')]:[clipUrl(t,'f')],0,t,onEnd);}
+function playClip(urls,i,t,onEnd){
+  let a;try{a=new Audio(urls[i]);}catch(e){audioOff=true;tts(t,onEnd);return;}
   player=a;let settled=false;
-  const miss=()=>{if(settled)return;settled=true;if(player===a)player=null;
+  const miss=()=>{if(settled)return;settled=true;
+    if(player!==a)return;                         /* 그 사이 다른 소리를 틀었거나 멈췄어요 */
+    player=null;
+    if(i+1<urls.length){playClip(urls,i+1,t,onEnd);return;}
     if(!audioHit&&++audioMiss>=3)audioOff=true;   /* 녹음이 아예 없는 곳: 그 뒤로는 바로 기기 음성 */
     tts(t,onEnd);};
   a.addEventListener('error',miss);
@@ -735,10 +813,14 @@ function listenView(){
 /* ---------- 화면 상태 ---------- */
 let view={name:'home'};
 let G=null;
-let ui={tour:null,confirmReset:false};
+let ui={tour:null,confirmReset:false,sheet:null};
 let timers=[];
 function clearTimers(){timers.forEach(t=>{clearTimeout(t);clearInterval(t);});timers=[];}
-function go(v){plStop();clearTimers();stopSay();G=null;ui.confirmReset=false;view=v||{name:'home'};render();window.scrollTo(0,0);}
+function go(v){plStop();clearTimers();stopSay();G=null;ui.confirmReset=false;ui.sheet=null;view=v||{name:'home'};render();window.scrollTo(0,0);}
+function mainTabs(){
+  return '<nav class="maintabs" aria-label="화면">'
+    +'<button data-act="tab" data-tab="home" aria-pressed="'+(view.name==='home'?'true':'false')+'">배우기</button>'
+    +'<button data-act="tab" data-tab="rec" aria-pressed="'+(view.name==='rec'?'true':'false')+'">기록</button></nav>';}
 function announce(msg){const el=$('#live');if(el)el.textContent=msg;}
 function header(title,back){
   let h='<header class="top">';
@@ -746,7 +828,7 @@ function header(title,back){
     +'<span class="vtitle">'+esc(title)+'</span>';}
   else{h+='<span class="logo" aria-hidden="true">'+ICON.flag+'</span><h1>독일어 놀이터</h1>';}
   h+='<div class="spacer"></div>';
-  h+='<span class="chip">Lv '+lvl(S.xp)+' · '+S.xp+' XP</span>';
+  h+='<span class="chip">'+(WHO.list.length>1&&me().name?esc(me().name)+' · Lv '+lvl(S.xp):'Lv '+lvl(S.xp)+' · '+S.xp+' XP')+'</span>';
   h+='<button class="iconbtn" data-act="sound" aria-pressed="'+(S.sound?'true':'false')+'" aria-label="효과음과 자동 읽기 '+(S.sound?'켜짐':'꺼짐')+'" title="효과음과 자동 읽기">'+(S.sound?ICON.soundOn:ICON.soundOff)+'</button>';
   return h+'</header>';
 }
@@ -763,10 +845,12 @@ function render(){
     case 'learn': body=learnView();        title='오늘 배우기'; break;
     case 'game':  body=gameView();         title=GAME_NAME[G.kind]; break;
     case 'listen':body=listenView();       title='연속 듣기'; break;
+    case 'rec':   body=recView(); break;
     default:      body=homeView();
   }
-  $('#app').innerHTML=header(title,view.name!=='home')+'<main>'+body+'</main>'
-    +(G&&G.done?resultSheet():'')+(ui.tour!==null?tourView():'')
+  const top=view.name==='home'||view.name==='rec';
+  $('#app').innerHTML=header(title,!top)+(top?mainTabs():'')+'<main>'+body+'</main>'
+    +(G&&G.done?resultSheet():'')+(ui.sheet?sheetView():'')+(ui.tour!==null?tourView():'')
     +'<div id="live" class="sr" aria-live="polite"></div>';
   const af=$('#app [data-af]');
   if(af&&af.focus){try{af.focus({preventScroll:true});}catch(e){}}
@@ -848,10 +932,269 @@ function homeView(){
     +scopeWords().map(wordRow).join('')+'</ul>';
   h+='<div class="foot"><div class="tiny">뜻 표시</div><div class="seg" role="group" aria-label="뜻 표시 언어">'
     +[['both','한국어 + English'],['ko','한국어'],['en','English']].map(o=>'<button data-act="lang" data-lang="'+o[0]+'" aria-pressed="'+(S.lang===o[0]?'true':'false')+'">'+o[1]+'</button>').join('')+'</div>';
+  h+='<div class="tiny" style="margin-top:10px">읽어 주는 목소리</div><div class="seg" role="group" aria-label="읽어 주는 목소리">'
+    +[['f','여자 목소리'],['m','남자 목소리 (낮은 음)']].map(o=>'<button data-act="voice" data-voice="'+o[0]+'" aria-pressed="'+(S.voice===o[0]?'true':'false')+'">'+o[1]+'</button>').join('')+'</div>';
   h+='<div class="row" style="margin-top:8px"><button class="link" data-act="tourOpen">사용법 보기</button><span class="spacer"></span>';
   h+=ui.confirmReset?'<span class="tiny">모든 기록을 지울까요?</span><button class="link danger" data-act="resetYes">지우기</button><button class="link" data-act="resetNo">취소</button>'
     :'<button class="link" data-act="reset">진도 초기화</button>';
-  h+='</div><p class="tiny">진도는 이 기기의 이 브라우저에만 저장돼요.</p></div>';
+  h+='</div><p class="tiny">'+(canSync()?'진도는 이 기기와 계정('+esc(S.acct.name)+')에 저장돼요.':'진도는 이 기기의 이 브라우저에만 저장돼요.')
+    +' 사람을 바꾸거나 기록을 보려면 위의 <b>기록</b> 탭으로 가요.</p></div>';
+  return h;
+}
+
+/* ---------- 계정 저장 (SYNC_URL 이 있을 때만 보여요) ---------- */
+/* 서버에는 사람마다 작은 JSON 하나: {v, at, s: 진도, pub: 요약}. 두 기기의 진도는 mergeState 로 합쳐요. */
+const BOARD_KEY=KEY+'-board';
+const SYNC_FIELDS=['xp','streak','lastDay','today','items','days','seen','diff','lang','voice','topic','sound','rz'];
+let sync={busy:false,again:false,dirty:false,t:null,err:'',at:0,board:null};
+try{const b=JSON.parse(localStorage.getItem(BOARD_KEY)||'null');if(Array.isArray(b))sync.board=b;}catch(e){}
+function canSync(){return !!(SYNC_URL&&S.acct&&S.acct.code&&typeof fetch==='function');}
+function syncSoon(){sync.dirty=true;if(!canSync()||sync.t)return;
+  sync.t=setTimeout(()=>{sync.t=null;if(sync.dirty)syncNow();},20000);}
+function clearBoard(){sync.board=null;sync.err='';sync.at=0;sync.dirty=false;try{localStorage.removeItem(BOARD_KEY);}catch(e){}}
+/* 한 사람의 요약: 기록 탭의 표와 서버의 pub 에 같이 써요 */
+function summary(s){
+  const items=(s&&s.items)||{},days=(s&&s.days)||{},t=todayStr();let words=0,stars=0,week=0;
+  for(const k of Object.keys(items)){const it=items[k];
+    if(it&&it.n>0&&byId(Number(k))){words++;stars+=it.box>=5?3:it.box>=3?2:it.box>=1?1:0;}}
+  for(let i=0;i<7;i++){const d=days[addDays(t,-i)];if(d&&d.x>0)week+=d.x;}
+  const day=(s&&typeof s.lastDay==='string'&&DAY_RE.test(s.lastDay))?s.lastDay:'',gap=day?dayDiff(day,t):99,xp=(s&&s.xp>0)?Math.floor(s.xp):0;
+  return {xp:xp,lv:lvl(xp),streak:(gap===0||gap===1)?(s.streak||0):0,words:words,stars:stars,week:week,day:day};}
+function packState(){const s={};SYNC_FIELDS.forEach(k=>{s[k]=S[k];});
+  return {v:1,app:'deutsch',at:S.updatedAt,s:s,pub:Object.assign({name:S.acct.name},summary(S))};}
+function isFresh(s){return !s.xp&&!s.rz&&!Object.keys(s.items).length;}
+function cleanItem(r){const n=x=>(typeof x==='number'&&x>=0)?x:0;
+  const it={box:Math.min(5,Math.floor(n(r.box))),due:typeof r.due==='string'?r.due:'',n:Math.floor(n(r.n)),c:Math.floor(n(r.c)),
+    up:typeof r.up==='string'?r.up:'',last:n(r.last)};
+  if(n(r.miss))it.miss=Math.floor(n(r.miss));
+  return it;}
+/* 서버의 진도 R 을 이 기기의 진도 L 에 합쳐요. 단어마다 더 나중에 푼 쪽, 날짜마다 더 큰 쪽.
+   "진도 초기화"(rz)는 더 나중에 한 쪽이 이겨요. adopt = 새 기기라서 설정도 서버 것을 받아요. */
+function mergeState(L,R,adopt){
+  if(!R||typeof R!=='object')return L;
+  const num=x=>(typeof x==='number'&&x>=0)?Math.floor(x):0,rz=num(R.rz);
+  if(rz<(L.rz||0))return L;
+  if(rz>(L.rz||0)){L.items={};L.days={};L.seen={};L.xp=0;L.streak=0;L.lastDay=null;L.today={day:null,games:0};L.rz=rz;}
+  if(R.items&&typeof R.items==='object')for(const k of Object.keys(R.items)){const r=R.items[k];
+    if(!r||typeof r!=='object'||!byId(Number(k)))continue;
+    const l=L.items[k];if(!l||num(r.last)>(l.last||0))L.items[k]=cleanItem(r);}
+  if(R.days&&typeof R.days==='object')for(const d of Object.keys(R.days)){const r=R.days[d];
+    if(!DAY_RE.test(d)||!r||typeof r!=='object')continue;
+    const l=L.days[d]||(L.days[d]={x:0,g:0,n:0,c:0});
+    for(const f of ['x','g','n','c'])l[f]=Math.max(l[f]||0,num(r[f]));}
+  L.xp=Math.max(L.xp||0,num(R.xp));
+  const rd=(typeof R.lastDay==='string'&&DAY_RE.test(R.lastDay))?R.lastDay:null;
+  if(rd&&(!L.lastDay||rd>L.lastDay)){L.lastDay=rd;L.streak=num(R.streak);}
+  else if(rd&&rd===L.lastDay)L.streak=Math.max(L.streak||0,num(R.streak));
+  if(R.today&&typeof R.today==='object'&&R.today.day===todayStr()){
+    if(L.today.day===R.today.day)L.today.games=Math.max(L.today.games||0,num(R.today.games));
+    else L.today={day:R.today.day,games:num(R.today.games)};}
+  if(R.seen&&typeof R.seen==='object')for(const k of Object.keys(R.seen))if(R.seen[k])L.seen[k]=true;
+  if(adopt){
+    if([1,2,3].includes(R.diff))L.diff=R.diff;
+    if(['both','ko','en'].includes(R.lang))L.lang=R.lang;
+    if(R.voice==='m'||R.voice==='f')L.voice=R.voice;
+    if(TOPICS.includes(R.topic))L.topic=R.topic;
+    if(typeof R.sound==='boolean')L.sound=R.sound;}
+  return L;}
+/* 받아서 합치고 올리기. 그 사이 다른 기기가 올렸으면(412) 다시 받아서 합쳐요. true 또는 알림 글을 돌려줘요. */
+async function syncOnce(st){
+  const url=SYNC_URL+'/v1/p/'+st.acct.code;
+  for(let n=0;n<3;n++){
+    const g=await fetch(url,{cache:'no-store'});
+    if(S!==st)return 'stale';
+    let etag=null;
+    if(g.status===200){etag=g.headers.get('ETag');const d=await g.json();
+      if(S!==st)return 'stale';
+      if(d&&d.s){mergeState(S,d.s,isFresh(S));store();}}
+    else if(g.status!==404)return '서버가 바빠요 ('+g.status+'). 잠시 뒤 다시 저장돼요.';
+    const h={'Content-Type':'application/json'};
+    if(etag)h['If-Match']=etag;else h['If-None-Match']='*';
+    const p=await fetch(url,{method:'PUT',headers:h,body:JSON.stringify(packState()),keepalive:true});
+    if(S!==st)return 'stale';
+    if(p.status===204)return true;
+    if(p.status===404)return '계정을 찾을 수 없어요. 연결을 끊고 다시 로그인해 주세요.';
+    if(p.status!==412)return '서버가 바빠요 ('+p.status+'). 잠시 뒤 다시 저장돼요.';
+  }
+  return '다른 기기와 겹쳤어요. 잠시 뒤 다시 저장돼요.';}
+async function syncNow(){
+  if(!canSync())return false;
+  if(sync.busy){sync.again=true;return false;}
+  sync.busy=true;sync.again=false;sync.dirty=false;
+  const st=S;let r;
+  try{r=await syncOnce(st);}catch(e){r='서버에 연결하지 못했어요.';}
+  sync.busy=false;
+  if(S===st){
+    if(r===true){sync.err='';sync.at=Date.now();}else{sync.err=r;sync.dirty=true;}
+    if((view.name==='home'||view.name==='rec')&&!ui.sheet&&ui.tour===null)render();}
+  if(sync.again||S!==st){sync.again=false;return syncNow();}
+  return r===true;}
+async function loadBoard(){
+  if(!canSync())return;
+  const st=S;
+  try{const r=await fetch(SYNC_URL+'/v1/board/'+st.acct.code,{cache:'no-store'});
+    if(r.status!==200||S!==st)return;
+    const d=await r.json();
+    if(S!==st||!d||!Array.isArray(d.rows))return;
+    sync.board=d.rows.slice(0,20);
+    try{localStorage.setItem(BOARD_KEY,JSON.stringify(sync.board));}catch(e){}
+    if(view.name==='rec'&&!ui.sheet&&ui.tour===null)render();
+  }catch(e){}}
+function refreshRec(){if(canSync())syncNow().then(loadBoard);}
+async function acctSubmit(){
+  const sh=ui.sheet;if(!sh||sh.kind!=='acct'||sh.busy||!SYNC_URL)return;
+  const ne=$('#acName'),pe=$('#acPin');
+  const name=String((ne&&ne.value)||'').replace(/\s+/g,' ').trim(),pin=String((pe&&pe.value)||'').trim();
+  if(name.length<2||name.length>10||/[<>]/.test(name)){toast('이름은 2~10자로 써 주세요.');return;}
+  if(!/^[0-9]{4,6}$/.test(pin)){toast('PIN은 숫자 4~6자리예요.');return;}
+  sh.busy=true;const st=S;let r;
+  try{r=await fetch(SYNC_URL+'/v1/'+sh.mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,pin:pin})});}
+  catch(e){sh.busy=false;toast('서버에 연결하지 못했어요. 인터넷을 확인해 주세요.');return;}
+  sh.busy=false;
+  if(S!==st||ui.sheet!==sh)return;
+  if(r.status===200||r.status===201){
+    let d=null;try{d=await r.json();}catch(e){}
+    if(S!==st||!d||typeof d.code!=='string'){toast('서버의 답을 읽지 못했어요. 다시 해 주세요.');return;}
+    S.acct={name:String(d.name||name),code:d.code};
+    if(!me().name){me().name=S.acct.name.slice(0,10);saveWho();}
+    store();ui.sheet=null;render();
+    toast(r.status===201?'계정을 만들었어요. 이제 진도가 계정에도 저장돼요.':'로그인했어요. 진도를 맞추고 있어요.');
+    syncNow().then(loadBoard);return;}
+  const why={400:'이름이나 PIN을 다시 확인해 주세요.',401:'PIN이 맞지 않아요.',404:'그런 이름의 계정이 없어요. 처음이면 "새로 만들기"를 눌러요.',
+    409:'이미 있는 이름이에요. 내 계정이면 "로그인"을 눌러요.',429:'너무 여러 번 했어요. 10분 뒤에 다시 해 주세요.',507:'계정 자리가 다 찼어요.'};
+  toast(why[r.status]||'잘 안 됐어요 ('+r.status+'). 잠시 뒤 다시 해 주세요.');}
+
+/* ---------- 사람 (한 기기에서 여럿이) ---------- */
+function peek(id){try{const o=JSON.parse(localStorage.getItem(skey(id))||'null');return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};}catch(e){return {};}}
+function switchPerson(id){
+  if(id===WHO.cur||!WHO.list.some(p=>p.id===id))return;
+  store();WHO.cur=id;saveWho();S=load();clearBoard();
+  go({name:'rec'});toast(nameOf(me())+' 님으로 바꿨어요.');refreshRec();}
+function whoSave(){
+  const sh=ui.sheet;if(!sh||sh.kind!=='who')return;
+  const el=$('#whoName'),name=String((el&&el.value)||'').replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,10);
+  if(!name){toast('이름을 써 주세요.');return;}
+  if(WHO.list.some(p=>p.id!==sh.id&&p.name===name)){toast('같은 이름이 이미 있어요.');return;}
+  if(sh.id){const p=WHO.list.find(x=>x.id===sh.id);if(p)p.name=name;saveWho();ui.sheet=null;render();return;}
+  if(WHO.list.length>=6)return;
+  store();
+  const id='p'+Date.now().toString(36).slice(-7)+Math.floor(Math.random()*36).toString(36);
+  WHO.list.push({id:id,name:name});WHO.cur=id;saveWho();
+  S=Object.assign(blank(),{lang:S.lang,sound:S.sound});store();clearBoard();
+  go({name:'rec'});toast(name+' 님, 환영해요! "배우기" 탭에서 시작해요.');}
+function whoDel(){
+  const sh=ui.sheet;if(!sh||sh.kind!=='who'||!sh.id||WHO.list.length<2)return;
+  if(!sh.sure){sh.sure=true;render();return;}
+  if(WHO.cur!==sh.id)store();
+  try{localStorage.removeItem(skey(sh.id));}catch(e){}
+  WHO.list=WHO.list.filter(p=>p.id!==sh.id);
+  if(WHO.cur===sh.id){WHO.cur=WHO.list[0].id;S=load();clearBoard();}
+  saveWho();go({name:'rec'});toast('이 기기에서 지웠어요.');refreshRec();}
+/* 함께 배우기 표: 이 기기의 사람들 + (계정이 있으면) 다른 기기에서 배우는 가족 */
+function peopleRows(){
+  const rows=[],mine={},t=todayStr();
+  for(const p of WHO.list){const s=p.id===WHO.cur?S:peek(p.id);
+    rows.push(Object.assign(summary(s),{name:nameOf(p),me:p.id===WHO.cur}));
+    if(s.acct&&typeof s.acct.name==='string')mine[s.acct.name]=true;}
+  if(canSync()&&sync.board)for(const r of sync.board){
+    if(!r||r.me||typeof r.name!=='string'||mine[r.name])continue;
+    const day=(typeof r.day==='string'&&DAY_RE.test(r.day))?r.day:'',gap=day?dayDiff(day,t):99,n=x=>(typeof x==='number'&&x>=0)?Math.floor(x):0;
+    rows.push({name:r.name.slice(0,10),me:false,xp:n(r.xp),lv:lvl(n(r.xp)),words:n(r.words),stars:n(r.stars),
+      streak:gap<=1?n(r.streak):0,week:gap<7?n(r.week):0,day:day});}
+  return rows.sort((a,b)=>b.xp-a.xp);}
+function sheetView(){
+  const sh=ui.sheet;
+  let h='<div class="sheetwrap"><div class="sheet pop" role="dialog" aria-modal="true" aria-label="'+(sh.kind==='who'?'사람':'계정')+'">';
+  if(sh.kind==='who'){
+    const p=sh.id?WHO.list.find(x=>x.id===sh.id):null;
+    h+='<h3>'+(p?'이름 바꾸기':'사람 추가')+'</h3>';
+    if(!p)h+='<p class="tiny">이 기기에서 함께 배우는 사람을 추가해요. 진도와 기록이 사람마다 따로 저장돼요.</p>';
+    h+='<label class="field"><span>이름 (10자까지)</span><input id="whoName" data-af type="text" maxlength="10" autocomplete="off" value="'+esc(p?p.name:'')+'"></label>';
+    h+='<div class="btnrow"><button class="ghost" data-act="sheetClose">취소</button><button class="primary" data-enter data-act="whoSave">저장</button></div>';
+    if(p&&WHO.list.length>1)h+='<div class="row" style="margin-top:10px">'+(sh.sure?'<span class="tiny">'+esc(nameOf(p))+' 님의 진도가 이 기기에서 지워져요.</span>':'')
+      +'<span class="spacer"></span><button class="link danger" data-act="whoDel">'+(sh.sure?'정말 지우기':'이 사람 지우기')+'</button></div>';
+  }else{
+    const up=sh.mode==='signup';
+    h+='<h3>'+(up?'계정 만들기':'로그인')+'</h3>';
+    h+='<p class="tiny">'+(up?'이름과 숫자 PIN을 정하면 '+esc(nameOf(me()))+' 님의 진도를 계정에 저장해요. 다른 기기에서도 같은 이름과 PIN으로 이어서 할 수 있어요.'
+      :'전에 만든 이름과 PIN을 넣어요. 계정의 진도와 이 기기에 있는 '+esc(nameOf(me()))+' 님의 진도를 합쳐요.')+'</p>';
+    h+='<label class="field"><span>이름 (2~10자)</span><input id="acName" data-af type="text" maxlength="10" autocomplete="username" value="'+esc(me().name)+'"></label>';
+    h+='<label class="field"><span>PIN (숫자 4~6자리)</span><input id="acPin" type="password" inputmode="numeric" maxlength="6" autocomplete="'+(up?'new-password':'current-password')+'"></label>';
+    h+='<div class="btnrow"><button class="ghost" data-act="sheetClose">취소</button><button class="primary" data-enter data-act="acctGo">'+(up?'만들기':'로그인')+'</button></div>';
+    h+='<div class="row" style="margin-top:10px"><span class="spacer"></span><button class="link" data-act="acctOpen" data-mode="'+(up?'login':'signup')+'">'
+      +(up?'이미 계정이 있어요 · 로그인':'계정이 없어요 · 새로 만들기')+'</button></div>';
+  }
+  return h+'</div></div>';}
+
+/* ---------- 기록 탭 ---------- */
+function pct(a,b){return b?Math.round(a/b*100):0;}
+function recView(){
+  const p=me(),x=lvlInfo(S.xp),t=todayStr(),lw=learnedIn(WORDS),box=[0,0,0];
+  let stars=0,nn=0,cc=0;
+  for(const w of lw){const it=S.items[w.id];stars+=starsFor(w.id);nn+=it.n||0;cc+=it.c||0;box[it.box>=5?2:it.box>=3?1:0]++;}
+  /* 누구의 기록 */
+  let h='<h2 class="secttl" style="margin-top:4px">누구의 기록</h2><div class="people" role="group" aria-label="사람">';
+  for(const q of WHO.list)h+='<button class="person" data-act="who" data-id="'+q.id+'" aria-pressed="'+(q.id===WHO.cur?'true':'false')+'">'+esc(nameOf(q))+'</button>';
+  if(WHO.list.length<6)h+='<button class="person add" data-act="whoAdd">+ 사람 추가</button>';
+  h+='</div><p class="tiny">'+(WHO.list.length>1?'이름을 누르면 그 사람으로 바뀌어요. 지금 고른 이름을 한 번 더 누르면 이름을 바꿀 수 있어요.'
+    :p.name?'함께 배우는 사람은 <b>사람 추가</b>로 넣어요. 진도가 사람마다 따로 저장돼요.'
+    :'<b>나</b>를 눌러 이름을 넣어요. 함께 배우는 사람은 <b>사람 추가</b>로 넣어요.')+'</p>';
+  /* 요약 */
+  h+='<section class="hero" aria-label="요약"><span class="muted">'+esc(nameOf(p))+' · Lv '+x.L+'</span><h2>'+esc(lvlTitle(x.L))+'</h2>'
+    +'<div class="muted">'+S.xp+' XP · '+(x.need?'다음 레벨까지 '+x.need+' XP':'가장 높은 레벨이에요')+'</div><div class="bar"><i style="width:'+x.pct+'%"></i></div>'
+    +'<div class="stats four"><div class="stat"><b>'+curStreak()+'</b><span>일 연속</span></div>'
+    +'<div class="stat"><b>'+lw.length+'<em>/'+WORDS.length+'</em></b><span>배운 단어</span></div>'
+    +'<div class="stat"><b>'+stars+'</b><span>모은 별</span></div>'
+    +'<div class="stat"><b>'+(nn?pct(cc,nn)+'<em>%</em>':'—')+'</b><span>정답률</span></div></div></section>';
+  /* 최근 7일: 날마다 얻은 XP */
+  const days=[];
+  for(let i=6;i>=0;i--){const d=addDays(t,-i),dt=d.split('-').map(Number);
+    days.push({d:d,m:dt[1],dd:dt[2],wd:'일월화수목금토'[new Date(dt[0],dt[1]-1,dt[2]).getDay()],r:S.days[d]||{x:0,g:0,n:0,c:0}});}
+  const mx=Math.max.apply(null,[1].concat(days.map(o=>o.r.x))),wsum=days.reduce((a,o)=>a+o.r.x,0),wact=days.filter(o=>o.r.g>0).length;
+  h+='<h2 class="secttl">최근 7일 <span class="muted">· '+wsum+' XP · '+wact+'일 공부</span></h2>'
+    +'<div class="card">'+(wsum?'':'<p class="tiny" style="margin-top:0">게임을 하면 날마다 얻은 XP가 여기에 막대로 보여요.</p>')
+    +'<div class="week'+(wsum?'':' empty')+'" role="img" aria-label="최근 7일 동안 날마다 얻은 XP. 모두 '+wsum+' XP">';
+  for(const o of days)h+='<div class="col" title="'+o.m+'월 '+o.dd+'일 · '+o.r.x+' XP · 게임 '+o.r.g+'번">'
+    +(o.r.x?'<span class="v">'+o.r.x+'</span><i class="b" style="height:'+Math.max(4,Math.round(o.r.x/mx*86))+'px"></i>':'<i class="b zero"></i>')+'</div>';
+  h+='</div><div class="weekdays" aria-hidden="true">'+days.map(o=>'<span'+(o.d===t?' class="now"':'')+'>'+(o.d===t?'오늘':o.wd)+'</span>').join('')+'</div></div>';
+  /* 주제별 */
+  h+='<h2 class="secttl">주제별 배운 단어</h2><div class="card">';
+  for(const tp of TOPICS){if(tp==='기초')continue;
+    const all=WORDS.filter(w=>w.topic===tp),n=learnedIn(all).length;
+    h+='<div class="meter"><span>'+esc(tp)+'</span><div class="track" role="img" aria-label="'+esc(tp)+' '+all.length+'개 중 '+n+'개"><i style="width:'+pct(n,all.length)+'%"></i></div>'
+      +'<span class="n">'+n+'/'+all.length+'</span></div>';}
+  h+='</div>';
+  /* 기억 상자 */
+  const seg=[['s0','새 단어',WORDS.length-lw.length],['s1','배우는 중',box[0]],['s2','익힘',box[1]],['s3','오래 기억',box[2]]];
+  h+='<h2 class="secttl">기억 상자</h2><div class="card"><div class="stack" role="img" aria-label="단어 '+WORDS.length+'개가 기억 상자에 어떻게 나뉘어 있는지">'
+    +seg.filter(s=>s[2]).map(s=>'<i class="'+s[0]+'" style="flex:'+s[2]+' 1 0" title="'+s[1]+' '+s[2]+'개"></i>').join('')+'</div>'
+    +'<div class="legend">'+seg.map(s=>'<span><i class="'+s[0]+'"></i>'+s[1]+' <b>'+s[2]+'</b></span>').join('')+'</div>'
+    +'<p class="tiny">복습에서 맞힐수록 오른쪽으로 가요. 익힘은 별 2개, 오래 기억은 별 3개예요.</p></div>';
+  /* 자주 틀리는 단어 */
+  const weak=lw.filter(w=>S.items[w.id].miss>0).sort((a,b)=>S.items[b.id].miss-S.items[a.id].miss).slice(0,5);
+  h+='<h2 class="secttl">자주 틀리는 단어</h2>';
+  if(weak.length)h+='<ul class="list">'+weak.map(w=>'<li><button class="wrow" data-act="openw" data-id="'+w.id+'"><span class="main"><span class="w">'+wordHtml(w)+'</span>'
+    +'<span class="m">'+esc(mean(w))+'</span></span><span class="side"><span class="duetag">'+S.items[w.id].miss+'번 틀림</span></span></button></li>').join('')+'</ul>';
+  else h+='<p class="tiny">'+(lw.length?'아직 틀린 단어가 없어요.':'단어를 배우면 어려운 단어가 여기에 모여요.')+'</p>';
+  /* 함께 배우기 */
+  const rows=peopleRows();
+  h+='<h2 class="secttl">함께 배우기</h2>';
+  if(rows.length>1)h+='<div class="card"><table class="cmp"><thead><tr><th scope="col">이름</th><th scope="col">Lv</th><th scope="col">단어</th><th scope="col">연속</th><th scope="col">7일 XP</th></tr></thead><tbody>'
+    +rows.map(r=>'<tr'+(r.me?' class="me"':'')+'><td>'+esc(r.name)+(r.me?' (나)':'')+'</td><td>'+r.lv+'</td><td>'+r.words+'</td><td>'+r.streak+'일</td><td>'+r.week+'</td></tr>').join('')
+    +'</tbody></table></div>';
+  else h+='<p class="tiny">함께 배우는 사람이 생기면 여기에서 서로의 기록을 나란히 볼 수 있어요. 같은 기기를 쓰면 위의 <b>사람 추가</b>'
+    +(SYNC_URL?', 각자 휴대폰을 쓰면 아래에서 <b>계정</b>을 만들어요.':'를 눌러요.')+'</p>';
+  /* 계정 */
+  if(SYNC_URL){
+    h+='<h2 class="secttl">계정에 저장</h2><div class="card">';
+    if(S.acct){const at=sync.at?new Date(sync.at):null;
+      h+='<div><b>'+esc(S.acct.name)+'</b> 계정에 저장하고 있어요.</div><p class="tiny">'
+        +(sync.err?esc(sync.err):at?'마지막 저장 '+pad2(at.getHours())+':'+pad2(at.getMinutes())+'.':'게임이 끝날 때마다 저장돼요.')
+        +' 다른 기기에서는 같은 이름과 PIN으로 로그인해요.</p>'
+        +'<div class="btnrow"><button class="ghost" data-act="syncGo">지금 저장</button><button class="ghost" data-act="acctOut">연결 끊기</button></div>';}
+    else h+='<p style="margin-top:0">계정을 만들면 '+esc(nameOf(p))+' 님의 진도가 서버에도 저장돼요. 휴대폰을 바꿔도 이어서 할 수 있고, 다른 기기에서 배우는 가족의 기록도 여기에서 볼 수 있어요.</p>'
+      +'<div class="btnrow"><button class="primary" data-act="acctOpen" data-mode="signup">계정 만들기</button><button class="ghost" data-act="acctOpen" data-mode="login">로그인</button></div>';
+    h+='</div>';}
   return h;
 }
 
@@ -862,7 +1205,8 @@ const TOUR=[
  {h:'독일어 놀이터에 온 걸 환영해요!',p:'독일어를 처음부터, 하루 5분씩 배우는 곳이에요. 뜻과 설명은 <b>한국어와 영어</b>로 함께 보여요 (홈 맨 아래에서 바꿀 수 있어요).'},
  {h:'1. 먼저 소리부터',p:'단어장의 <b>기초</b> 탭에서 ä ö ü ß, ch, w 같은 독일어 소리를 듣고 따라 해요. 짧은 <b>문법 메모</b> 다섯 개도 거기 있어요.'},
  {h:'2. 오늘 배우기',p:'파란 버튼을 누르면 새 단어 <b>5개</b>를 카드로 보고 듣고, 바로 퀴즈를 풀어요. 명사는 <b class="g-m">der</b> <b class="g-f">die</b> <b class="g-n">das</b>까지 함께 외워요.'},
- {h:'3. 복습과 별',p:'배운 단어는 1, 2, 4, 8, 16일 뒤에 <b>오늘 복습</b>에 다시 나와요. 맞힐 때마다 별이 늘고, 틀리면 그날 다시 나와요. 게임 세 가지에는 배운 단어만 나와요.'}
+ {h:'3. 복습과 별',p:'배운 단어는 1, 2, 4, 8, 16일 뒤에 <b>오늘 복습</b>에 다시 나와요. 맞힐 때마다 별이 늘고, 틀리면 그날 다시 나와요. 게임 세 가지에는 배운 단어만 나와요.'},
+ {h:'4. 기록 · 함께 배우기',p:'<b>기록</b> 탭에서 이번 주에 얼마나 했는지, 어떤 단어가 어려운지 볼 수 있어요. <b>사람 추가</b>를 누르면 한 기기에서 둘이 따로 배우고 서로의 기록을 나란히 봐요.'}
 ];
 function tourView(){
   const i=Math.min(ui.tour,TOUR.length-1),s=TOUR[i],last=i===TOUR.length-1;
@@ -984,6 +1328,7 @@ function settle(w,ok,pts){
   G.busy=true;
   if(ok){G.ok++;G.xp+=Math.round(pts*DIFF[G.d].mult);}
   else if(G.miss.indexOf(w.id)<0)G.miss.push(w.id);
+  const dr=dayRec();dr.n++;if(ok)dr.c++;
   grade(w,ok);
   sfx(ok?'ok':'bad');
 }
@@ -1001,7 +1346,9 @@ function finishGame(){
   S.xp+=Math.max(0,Math.round(G.xp));
   S.log.push({d:todayStr(),g:G.kind,ok:G.ok,t:G.q.length,x:G.xp,df:G.d});
   if(S.log.length>240)S.log=S.log.slice(-240);
-  touchStreak();save();
+  const dr=dayRec();dr.x+=Math.max(0,Math.round(G.xp));dr.g++;
+  const dk=Object.keys(S.days).sort();if(dk.length>120)dk.slice(0,dk.length-120).forEach(k=>{delete S.days[k];});
+  touchStreak();save();syncNow();
   G.levelUp=lvl(S.xp)>before?lvl(S.xp):0;
   sfx('win');render();
   announce('끝났어요. '+G.q.length+'문제 중 '+G.ok+'개 정답, '+G.xp+' XP');
@@ -1229,11 +1576,11 @@ $('#app').addEventListener('click',e=>{
     case 'topic': if(TOPICS.includes(d.topic)){S.topic=d.topic;save();render();}break;
     case 'diff':{const n=Number(d.diff);if(DIFF[n]){S.diff=n;save();render();announce('난이도 '+DIFF[n].name);}break;}
     case 'lang': if(['both','ko','en'].includes(d.lang)){S.lang=d.lang;save();render();}break;
-    case 'openw': go({name:'word',id:Number(d.id),from:view.name==='home'?null:view});break;
+    case 'openw': go({name:'word',id:Number(d.id),ret:view.name==='rec'?'rec':null});break;
     case 'opens': go({name:'sound',id:d.id});break;
     case 'openn': go({name:'note',id:d.id});break;
     case 'say': say(d.text||'');break;
-    case 'back': go(G&&G.back&&view.name!=='learn'?G.back:{name:'home'});break;
+    case 'back': go(G&&G.back&&view.name!=='learn'?G.back:{name:view.ret==='rec'?'rec':'home'});break;
     case 'learn': learnStart();break;
     case 'lnext': if(G&&G.kind==='learn'&&G.phase==='cards'){
         if(G.li<G.words.length-1){G.li++;render();window.scrollTo(0,0);autoSay(G.words[G.li].de);}else learnQuiz();}break;
@@ -1262,13 +1609,36 @@ $('#app').addEventListener('click',e=>{
     case 'tourClose': ui.tour=null;try{localStorage.setItem(TOUR_KEY,'1');}catch(e){}render();break;
     case 'reset': ui.confirmReset=true;render();break;
     case 'resetNo': ui.confirmReset=false;render();break;
-    case 'resetYes': S=blank();save();go({name:'home'});toast('진도를 지웠어요.');break;
+    case 'resetYes': S=Object.assign(blank(),{acct:S.acct,lang:S.lang,voice:S.voice,sound:S.sound,rz:Date.now()});save();go({name:'home'});
+      toast('진도를 지웠어요.');syncNow();break;
+    case 'voice': if(d.voice==='f'||d.voice==='m'){S.voice=d.voice;save();render();say('Guten Tag');}break;
+    case 'tab': go({name:d.tab==='rec'?'rec':'home'});if(d.tab==='rec')refreshRec();break;
+    case 'who': if(d.id===WHO.cur){ui.sheet={kind:'who',id:d.id};render();}else switchPerson(d.id);break;
+    case 'whoAdd': if(WHO.list.length<6){ui.sheet={kind:'who',id:null};render();}break;
+    case 'whoSave': whoSave();break;
+    case 'whoDel': whoDel();break;
+    case 'sheetClose': ui.sheet=null;render();break;
+    case 'acctOpen': ui.sheet={kind:'acct',mode:d.mode==='login'?'login':'signup'};render();break;
+    case 'acctGo': acctSubmit();break;
+    case 'acctOut': S.acct=null;sync.board=null;sync.err='';sync.at=0;try{localStorage.removeItem(BOARD_KEY);}catch(x){}save();render();
+      toast('이 기기에서 계정 연결을 끊었어요. 진도는 이 기기에 그대로 있어요.');break;
+    case 'syncGo': syncNow().then(ok=>{toast(ok?'계정에 저장했어요.':'저장하지 못했어요. '+sync.err);loadBoard();});break;
     default: break;
   }
 });
 document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!ui.sheet)return;
+  const b=$('#app [data-enter]');if(b&&e.target&&e.target.tagName==='INPUT'){e.preventDefault();b.click();}
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){if(sync.dirty)syncNow();}
+  else if(canSync()&&Date.now()-sync.at>60000)syncNow().then(()=>{if(view.name==='rec')loadBoard();});
+});
+if(canSync())syncNow();
+document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   if(ui.tour!==null){ui.tour=null;try{localStorage.setItem(TOUR_KEY,'1');}catch(x){}render();}
+  else if(ui.sheet){ui.sheet=null;render();}
   else if(view.name!=='home')go(G&&G.back&&view.name!=='learn'?G.back:{name:'home'});
 });
 
